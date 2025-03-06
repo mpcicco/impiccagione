@@ -840,11 +840,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Nascondi il testo guida
         selectionGuide.style.display = 'none';
         
-        // Cambia il titolo in alto
+        // Cambia il titolo in alto (solo il testo, non il colore)
         const pageTitle = document.querySelector('header h1');
         if (pageTitle) {
             pageTitle.textContent = "Frase indovinata!";
-            pageTitle.style.color = "var(--color-green)";
+            // Manteniamo solo l'animazione, senza cambiare il colore
             pageTitle.style.animation = "bounce 0.5s ease infinite";
         }
         
