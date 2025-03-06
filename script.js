@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Configura la musica di sottofondo
     backgroundMusic.loop = true;
-    backgroundMusic.volume = 0.1;
+    backgroundMusic.volume = 0.3;
     
     // Imposta i suoni utilizzando AudioContext
     const setupSounds = () => {
@@ -207,9 +207,44 @@ document.addEventListener('DOMContentLoaded', () => {
         updateKeyboardState();
     };
     
+    // Funzione per controllare quali lettere rimangono da indovinare nella frase
+    const checkRemainingLetters = () => {
+        const letterBoxes = document.querySelectorAll('.letter-box');
+        let remainingVowels = new Set();
+        let remainingConsonants = new Set();
+        
+        // Controlla solo le caselle non ancora rivelate
+        letterBoxes.forEach(box => {
+            if (!box.classList.contains('revealed') && !box.classList.contains('space')) {
+                const letter = box.dataset.normalizedChar;
+                // Aggiungi la lettera al set appropriato solo se non è stata ancora rivelata
+                if (vowels.includes(letter)) {
+                    remainingVowels.add(letter);
+                } else if (consonants.includes(letter)) {
+                    remainingConsonants.add(letter);
+                }
+            }
+        });
+        
+        // Se nella frase rimangono solo vocali da indovinare, forza la modalità vocale
+        if (remainingVowels.size > 0 && remainingConsonants.size === 0) {
+            selectionMode = 'vowel';
+            correctConsonantsInARow = maxConsonantsBeforeVowel; // Forza il passaggio alle vocali
+        }
+        // Se nella frase rimangono solo consonanti da indovinare, forza la modalità consonante
+        else if (remainingConsonants.size > 0 && remainingVowels.size === 0) {
+            selectionMode = 'consonant';
+        }
+        
+        updateSelectionGuide();
+        return { vowels: remainingVowels, consonants: remainingConsonants };
+    };
+    
     // Aggiorna lo stato della tastiera in base alla modalità di selezione
     const updateKeyboardState = () => {
         const keys = document.querySelectorAll('.key');
+        const remaining = checkRemainingLetters();
+        
         keys.forEach(key => {
             const letter = key.dataset.letter;
             
@@ -220,21 +255,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            // Se il tasto è già stato usato, mantienilo disabilitato
+            // Se il tasto è già stato usato, nascondilo
             if (key.classList.contains('used')) {
-                key.disabled = true;
+                key.style.display = 'none';
                 return;
             }
             
-            // Abilita/disabilita in base alla modalità di selezione
-            if (selectionMode === 'consonant') {
-                key.disabled = vowels.includes(letter);
-                key.style.opacity = vowels.includes(letter) ? '0.3' : '1';
-            } else { // vowel mode
-                key.disabled = consonants.includes(letter);
-                key.style.opacity = consonants.includes(letter) ? '0.3' : '1';
+            // Se nella frase rimangono solo vocali da indovinare, mostra solo quelle vocali
+            if (remaining.vowels.size > 0 && remaining.consonants.size === 0) {
+                const isRemainingVowel = remaining.vowels.has(letter);
+                key.disabled = !isRemainingVowel;
+                key.style.opacity = isRemainingVowel ? '1' : '0.3';
+                if (!isRemainingVowel) {
+                    key.style.display = 'none';
+                }
+            }
+            // Se nella frase rimangono solo consonanti da indovinare, mostra solo quelle consonanti
+            else if (remaining.consonants.size > 0 && remaining.vowels.size === 0) {
+                const isRemainingConsonant = remaining.consonants.has(letter);
+                key.disabled = !isRemainingConsonant;
+                key.style.opacity = isRemainingConsonant ? '1' : '0.3';
+                if (!isRemainingConsonant) {
+                    key.style.display = 'none';
+                }
+            }
+            // Altrimenti, segui la modalità normale
+            else {
+                if (selectionMode === 'consonant') {
+                    key.disabled = vowels.includes(letter);
+                    key.style.opacity = vowels.includes(letter) ? '0.3' : '1';
+                } else { // vowel mode
+                    key.disabled = consonants.includes(letter);
+                    key.style.opacity = consonants.includes(letter) ? '0.3' : '1';
+                }
             }
         });
+    };
+    
+    // Funzione per rivelare tutte le lettere immediatamente
+    const revealAllLetters = () => {
+        const letterBoxes = document.querySelectorAll('.letter-box');
+        letterBoxes.forEach(box => {
+            if (!box.classList.contains('revealed') && !box.classList.contains('space')) {
+                box.textContent = box.dataset.char;
+                box.classList.add('revealed');
+                lettersRevealed++;
+            }
+        });
+        
+        // Disabilita tutti i tasti della tastiera
+        const keys = document.querySelectorAll('.key');
+        keys.forEach(key => {
+            key.style.display = 'none';
+        });
+        
+        // Nascondi il testo guida
+        selectionGuide.style.display = 'none';
+        
+        // Celebra la vittoria dopo un breve ritardo
+        setTimeout(() => {
+            celebrateWin();
+        }, 500);
     };
     
     // Inizializza il gioco
@@ -252,6 +333,26 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Inizializza lo stato della tastiera (disabilitata all'inizio)
         updateKeyboardState();
+        
+        // Aggiungi l'evento per rivelare tutte le lettere quando si tiene premuto il titolo
+        const title = document.querySelector('header h1');
+        let pressTimer;
+        
+        title.addEventListener('mousedown', () => {
+            pressTimer = setTimeout(() => {
+                if (gameStarted) {
+                    revealAllLetters();
+                }
+            }, 1000); // Rivela dopo 1 secondo di pressione
+        });
+        
+        title.addEventListener('mouseup', () => {
+            clearTimeout(pressTimer);
+        });
+        
+        title.addEventListener('mouseleave', () => {
+            clearTimeout(pressTimer);
+        });
         
         // Gestisci il pulsante di avvio della musica
         startMusicBtn.addEventListener('click', () => {
@@ -536,15 +637,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
+        // Controlla se rimangono solo vocali o solo consonanti prima di procedere
+        const remaining = checkRemainingLetters();
+        const onlyVowelsRemain = remaining.vowels.size > 0 && remaining.consonants.size === 0;
+        const onlyConsonantsRemain = remaining.consonants.size > 0 && remaining.vowels.size === 0;
+        
         if (letterFound) {
             // La lettera è presente nella frase
             key.classList.add('correct');
             playSound(correctSound);
             
             // Aggiorna il contatore di consonanti corrette consecutive se necessario
-            if (selectionMode === 'consonant' && consonants.includes(letter)) {
-                correctConsonantsInARow++;
-                consonantsSelected++;
+            // Solo se non siamo in una situazione speciale (solo vocali o solo consonanti)
+            if (!onlyVowelsRemain && !onlyConsonantsRemain) {
+                if (selectionMode === 'consonant' && consonants.includes(letter)) {
+                    correctConsonantsInARow++;
+                    consonantsSelected++;
+                }
             }
             
             // Rivela le lettere una alla volta con un ritardo
@@ -554,10 +663,13 @@ document.addEventListener('DOMContentLoaded', () => {
             key.classList.add('wrong');
             
             // Se siamo in modalità consonante e la lettera è una consonante
-            if (selectionMode === 'consonant' && consonants.includes(letter)) {
-                // Se abbiamo già indovinato 2 consonanti, non resettare il conteggio
-                if (correctConsonantsInARow < 2) {
-                    correctConsonantsInARow = 0;
+            // Solo se non siamo in una situazione speciale (solo vocali o solo consonanti)
+            if (!onlyVowelsRemain && !onlyConsonantsRemain) {
+                if (selectionMode === 'consonant' && consonants.includes(letter)) {
+                    // Se abbiamo già indovinato 2 consonanti, non resettare il conteggio
+                    if (correctConsonantsInARow < 2) {
+                        correctConsonantsInARow = 0;
+                    }
                 }
             }
             
@@ -565,13 +677,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Cambia la modalità di selezione se necessario
-        if ((selectionMode === 'consonant' && correctConsonantsInARow >= maxConsonantsBeforeVowel) || 
-            selectionMode === 'vowel') {
-            toggleSelectionMode();
-        } else {
-            updateSelectionGuide();
-            updateKeyboardState();
+        // Solo se non siamo in una situazione speciale (solo vocali o solo consonanti)
+        if (!onlyVowelsRemain && !onlyConsonantsRemain) {
+            if ((selectionMode === 'consonant' && correctConsonantsInARow >= maxConsonantsBeforeVowel) || 
+                selectionMode === 'vowel') {
+                toggleSelectionMode();
+            }
         }
+        
+        // Aggiorna sempre la guida e lo stato della tastiera
+        updateSelectionGuide();
+        updateKeyboardState();
     };
     
     // Rivela le lettere una alla volta con un ritardo
@@ -595,11 +711,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Controlla se tutte le lettere sono state rivelate
                 if (lettersRevealed === totalLettersToReveal) {
+                    // Nascondi il testo guida quando tutte le lettere sono state rivelate
+                    selectionGuide.style.display = 'none';
+                    
                     setTimeout(() => {
                         celebrateWin();
                     }, 1000);
                 }
-            }, index * 1400); // 1 secondo di ritardo tra ogni lettera
+                
+                // Aggiorna lo stato della tastiera dopo ogni lettera rivelata
+                // per mostrare solo le lettere rimanenti
+                updateKeyboardState();
+            }, index * 1000); // 1 secondo di ritardo tra ogni lettera
         });
     };
     
@@ -674,8 +797,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Celebra la vittoria
     const celebrateWin = () => {
+        // Nascondi il testo guida
+        selectionGuide.style.display = 'none';
+        
         // Invece di mettere in pausa la musica, aumenta il volume al 100%
-        backgroundMusic.volume = 1.0;
+        backgroundMusic.volume = 0.8;
         
         // Riproduci il suono di vittoria
         playSound(winSound);
@@ -699,6 +825,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Implementazione della celebrazione della vittoria
         const winMessage = document.createElement('div');
         winMessage.classList.add('win-message');
+        
+        // Aggiungi il pulsante X per chiudere
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '&times;';
+        closeButton.style.position = 'absolute';
+        closeButton.style.right = '20px';
+        closeButton.style.top = '20px';
+        closeButton.style.background = 'none';
+        closeButton.style.border = 'none';
+        closeButton.style.color = 'white';
+        closeButton.style.fontSize = '3rem';
+        closeButton.style.cursor = 'pointer';
+        closeButton.style.padding = '0';
+        closeButton.style.lineHeight = '1';
+        
+        closeButton.addEventListener('click', () => {
+            document.body.removeChild(winOverlay);
+        });
+        
         winMessage.innerHTML = '<h2><i class="fas fa-trophy"></i> Complimenti Manuela! <i class="fas fa-trophy"></i></h2><p>Hai indovinato la frase!</p>';
         
         // Stile per posizionamento e aspetto
@@ -716,13 +861,14 @@ document.addEventListener('DOMContentLoaded', () => {
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            alignItems: 'center'
+            alignItems: 'center',
+            position: 'relative' // Per il posizionamento del pulsante X
         });
         
         // Stili per il titolo e il testo
         const h2 = winMessage.querySelector('h2');
         Object.assign(h2.style, {
-            fontSize: '5.5rem',
+            fontSize: '2.75rem', // Ridotto da 5.5rem
             marginBottom: '40px',
             width: '100%',
             textAlign: 'center'
@@ -734,6 +880,9 @@ document.addEventListener('DOMContentLoaded', () => {
             width: '100%',
             textAlign: 'center'
         });
+        
+        // Aggiungi il pulsante X al messaggio
+        winMessage.appendChild(closeButton);
         
         // Aggiungi il messaggio all'overlay e l'overlay al body
         winOverlay.appendChild(winMessage);
