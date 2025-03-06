@@ -840,8 +840,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Nascondi il testo guida
         selectionGuide.style.display = 'none';
         
+        // Cambia il titolo in alto
+        const pageTitle = document.querySelector('header h1');
+        if (pageTitle) {
+            pageTitle.textContent = "Frase indovinata!";
+            pageTitle.style.color = "var(--color-green)";
+            pageTitle.style.animation = "bounce 0.5s ease infinite";
+        }
+        
         // Invece di mettere in pausa la musica, aumenta il volume al 100%
-        backgroundMusic.volume = 0.8;
+        backgroundMusic.volume = 1.0;
         
         // Riproduci il suono di vittoria
         playSound(winSound);
