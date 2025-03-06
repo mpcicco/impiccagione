@@ -56,44 +56,50 @@ document.addEventListener('DOMContentLoaded', () => {
     backgroundMusic.loop = true;
     backgroundMusic.volume = 0.3;
     
-    // Imposta i suoni utilizzando AudioContext
+    // Configura i suoni
     const setupSounds = () => {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         // Suono corretto (beep acuto)
         const createCorrectSound = () => {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
             
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // La nota A5
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.01);
-            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // La nota A5
+            
+            // Riduzione del volume del 50%
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime); // Ridotto da 0.3 a 0.15
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             
             oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(audioCtx.destination);
             
             oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.3);
+            oscillator.stop(audioCtx.currentTime + 0.3);
+            
+            return { play: () => {} }; // Dummy play method
         };
         
         // Suono sbagliato (beep grave)
         const createWrongSound = () => {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
             
             oscillator.type = 'sawtooth';
-            oscillator.frequency.setValueAtTime(220, audioContext.currentTime); // La nota A3
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.01);
-            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+            oscillator.frequency.setValueAtTime(110, audioCtx.currentTime); // La nota A2
+            
+            // Riduzione del volume del 50%
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime); // Ridotto da 0.3 a 0.15
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
             
             oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(audioCtx.destination);
             
             oscillator.start();
-            oscillator.stop(audioContext.currentTime + 0.5);
+            oscillator.stop(audioCtx.currentTime + 0.5);
+            
+            return { play: () => {} }; // Dummy play method
         };
         
         // Suono vittoria (fanfara stile videogioco)
@@ -645,7 +651,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (letterFound) {
             // La lettera è presente nella frase
             key.classList.add('correct');
+            
+            // Riduci il volume del suono corretto
+            const originalVolume = correctSound.volume;
+            if (originalVolume !== undefined) {
+                correctSound.volume = originalVolume * 0.5;
+            }
+            
             playSound(correctSound);
+            
+            // Ripristina il volume originale
+            if (originalVolume !== undefined) {
+                correctSound.volume = originalVolume;
+            }
             
             // Aggiorna il contatore di consonanti corrette consecutive se necessario
             // Solo se non siamo in una situazione speciale (solo vocali o solo consonanti)
@@ -662,6 +680,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // La lettera non è presente nella frase
             key.classList.add('wrong');
             
+            // Riduci il volume del suono sbagliato
+            const originalVolume = wrongSound.volume;
+            if (originalVolume !== undefined) {
+                wrongSound.volume = originalVolume * 0.5;
+            }
+            
+            showWrongAnimation();
+            
+            // Ripristina il volume originale
+            if (originalVolume !== undefined) {
+                wrongSound.volume = originalVolume;
+            }
+            
             // Se siamo in modalità consonante e la lettera è una consonante
             // Solo se non siamo in una situazione speciale (solo vocali o solo consonanti)
             if (!onlyVowelsRemain && !onlyConsonantsRemain) {
@@ -672,8 +703,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
-            
-            showWrongAnimation();
         }
         
         // Cambia la modalità di selezione se necessario
@@ -728,10 +757,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Mostra l'animazione per la risposta sbagliata
     const showWrongAnimation = () => {
-        // Metti in pausa la musica di sottofondo
-        backgroundMusic.pause();
+        // Riduci il volume del suono sbagliato
+        const originalVolume = wrongSound.volume;
+        if (originalVolume !== undefined) {
+            wrongSound.volume = originalVolume * 0.5;
+        }
         
         playSound(wrongSound);
+        
+        // Ripristina il volume originale
+        if (originalVolume !== undefined) {
+            wrongSound.volume = originalVolume;
+        }
+        
+        // Metti in pausa la musica di sottofondo
+        backgroundMusic.pause();
         
         // Mostra la X
         wrongAnswer.style.opacity = '1';
